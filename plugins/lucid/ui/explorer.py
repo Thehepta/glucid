@@ -9,10 +9,11 @@ import ida_hexrays
 
 from PyQt5 import QtWidgets, QtGui, QtCore, sip
 
+from lucid.ui.graph import show_microcode_graph
 from lucid.ui.sync import MicroCursorHighlight
 from lucid.ui.subtree import MicroSubtreeView
 from lucid.util.python import register_callback, notify_callback
-from lucid.util.hexrays import get_microcode, get_mmat, get_mmat_name, get_mmat_levels 
+from lucid.util.hexrays import get_microcode, get_mmat, get_mmat_name, get_mmat_levels
 from lucid.microtext import MicrocodeText, MicroInstructionToken, MicroOperandToken, AddressToken, BlockNumberToken, translate_mtext_position, remap_mtext_position
 
 #------------------------------------------------------------------------------
@@ -24,6 +25,18 @@ from lucid.microtext import MicrocodeText, MicroInstructionToken, MicroOperandTo
 #    I've come to appreciate it more for its portability and testability.
 #
 
+
+maturity_kv = {
+    ida_hexrays.MMAT_GENERATED: "MMAT_GENERATED",
+    ida_hexrays.MMAT_PREOPTIMIZED: "MMAT_PREOPTIMIZED",
+    ida_hexrays.MMAT_LOCOPT: "MMAT_LOCOPT",
+    ida_hexrays.MMAT_CALLS: "MMAT_CALLS",
+    ida_hexrays.MMAT_GLBOPT1: "MMAT_GLBOPT1",
+    ida_hexrays.MMAT_GLBOPT2: "MMAT_GLBOPT2",
+    ida_hexrays.MMAT_GLBOPT3: "MMAT_GLBOPT3",
+    ida_hexrays.MMAT_LVARS: "MMAT_LVARS"
+}
+
 class MicrocodeExplorer(object):
     """
     The controller component of the microcode explorer.
@@ -33,7 +46,7 @@ class MicrocodeExplorer(object):
     controller should be able to drive the 'view' headlessly or simulate user
     UI interaction.
     """
-    
+
     def __init__(self):
         self.model = MicrocodeExplorerModel()
         self.view = MicrocodeExplorerView(self, self.model)
@@ -80,7 +93,7 @@ class MicrocodeExplorer(object):
         """
         self.model.verbose = status
         ida_kernwin.refresh_idaview_anyway()
-    
+
     #-------------------------------------------------------------------------
     # View Controls
     #-------------------------------------------------------------------------
@@ -92,7 +105,7 @@ class MicrocodeExplorer(object):
         func = ida_funcs.get_func(address)
         if not func:
             return False
-        
+
         for maturity in get_mmat_levels():
             mba = get_microcode(func, maturity)
             mtext = MicrocodeText(mba, self.model.verbose)
@@ -150,7 +163,7 @@ class MicrocodeExplorer(object):
             blk_token = self.model.mtext.blks[blk_idx]
             blk_line_num, _ = self.model.mtext.get_pos_of_token(blk_token.lines[0])
             self.model.current_position = (blk_line_num, 0, y)
-            self.view._code_view.Jump(*self.model.current_position) 
+            self.view._code_view.Jump(*self.model.current_position)
             return
 
 class MicrocodeExplorerModel(object):
@@ -204,7 +217,7 @@ class MicrocodeExplorerModel(object):
         self._mtext_refreshed_callbacks = []
         self._position_changed_callbacks = []
         self._maturity_changed_callbacks = []
-    
+
     #-------------------------------------------------------------------------
     # Read-Only Properties
     #-------------------------------------------------------------------------
@@ -224,7 +237,7 @@ class MicrocodeExplorerModel(object):
         if not self.mtext:
             return None
         line_num, _, _ = self.current_position
-        return self.mtext.lines[line_num] 
+        return self.mtext.lines[line_num]
 
     @property
     def current_function(self):
@@ -241,7 +254,7 @@ class MicrocodeExplorerModel(object):
         Return the token at the current viewport cursor position.
         """
         return self.mtext.get_token_at_position(*self.current_position[:2])
-    
+
     @property
     def current_address(self):
         """
@@ -295,14 +308,14 @@ class MicrocodeExplorerModel(object):
 
         # verbosity must have changed, so force a mtext refresh
         self.refresh_mtext()
-    
+
     @property
     def active_maturity(self):
         """
         Return the active microcode maturity level.
         """
         return self._active_maturity
-    
+
     @active_maturity.setter
     def active_maturity(self, new_maturity):
         """
@@ -349,7 +362,7 @@ class MicrocodeExplorerModel(object):
         self._view_cursors = {x: None for x in mmat_levels}
 
         # save the starting cursor
-        line_num, x, y = position 
+        line_num, x, y = position
         self._view_cursors[mmat_src] = ViewCursor(line_num, x, y, True)
 
         # map the cursor backwards from the source maturity
@@ -443,7 +456,7 @@ class MicrocodeExplorerView(QtWidgets.QWidget):
         # the backing model, and controller for this view (eg, mvc pattern)
         self.model = model
         self.controller = controller
-        
+
         # initialize the plugin UI
         self._ui_init()
         self._ui_init_signals()
@@ -536,7 +549,7 @@ class MicrocodeExplorerView(QtWidgets.QWidget):
         self._checkbox_verbose = QtWidgets.QCheckBox("Show use/def")
         self._checkbox_sync = QtWidgets.QCheckBox("Sync hexrays")
         self._checkbox_sync.setCheckState(QtCore.Qt.Checked)
-        
+
         self._groupbox_settings = QtWidgets.QGroupBox("Settings")
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self._checkbox_cursor)
@@ -557,7 +570,7 @@ class MicrocodeExplorerView(QtWidgets.QWidget):
 
         # apply the layout to the widget
         self.widget.setLayout(layout)
-        
+
     def _ui_init_signals(self):
         """
         Connect UI signals.
@@ -574,7 +587,7 @@ class MicrocodeExplorerView(QtWidgets.QWidget):
         # model signals
         self.model.mtext_refreshed(self.refresh)
         self.model.maturity_changed(self.refresh)
-    
+
     #--------------------------------------------------------------------------
     # Misc
     #--------------------------------------------------------------------------
@@ -617,7 +630,7 @@ class LayerListWidget(QtWidgets.QListWidget):
         # scrolling up, clamp to first row (0)
         elif y > 0:
             next_row = max(self.currentRow()-1, 0)
-        
+
         # horizontal scroll ? nothing to do..
         else:
             return
@@ -692,7 +705,7 @@ class MicrocodeView(ida_kernwin.simplecustviewer_t):
             def __init__(self, qmenu):
                 super(QtCore.QObject, self).__init__()
                 self.qmenu = qmenu
-        
+
             def eventFilter(self, obj, event):
                 if event.type() != QtCore.QEvent.Polish:
                     return False
@@ -722,9 +735,15 @@ class MicrocodeView(ida_kernwin.simplecustviewer_t):
         # inject the 'View subtree' action into the right click context menu
         desc = ida_kernwin.action_desc_t(None, 'View subtree', MyHandler())
         ida_kernwin.attach_dynamic_action_to_popup(form, popup_handle, desc, None)
-        
+
         return True
 
+
+    def OnKeydown(self, vkey, shift):
+        if vkey == ord("G"):
+            func_name = ida_funcs.get_func_name(self.model.current_function)
+            mmat = self.model.active_maturity
+            show_microcode_graph(self.model.mtext.mba,func_name+":"+maturity_kv.get(mmat),None)
 #-----------------------------------------------------------------------------
 # Util
 #-----------------------------------------------------------------------------
@@ -739,7 +758,7 @@ class ViewCursor(object):
         self.y = y
         self.mapped = mapped
 
-    @property 
+    @property
     def text_position(self):
         return (self.line_num, self.x)
 
