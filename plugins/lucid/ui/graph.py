@@ -59,6 +59,7 @@ def dominanceFlow(mba,dispatch_block):
 
     dfs(dispatch_block,dispatch_block,[],paths,set())
     entry_block = GenericDispatcherBlockInfo(dispatch_block)
+    #  初始化ud链，如果不想用GenericDispatcherBlockInfo，自己写初始化就可以了，然后直接使用ud链传入
     entry_block.parse()
     num_mop, mop_compared = get_comparison_info(entry_block.blk)
     # father_tracker.reset()
