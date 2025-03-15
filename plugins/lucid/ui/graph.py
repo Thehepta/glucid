@@ -1,12 +1,41 @@
 import ida_graph
 import ida_hexrays as hr
 import ida_kernwin as kw
+from ida_hexrays import mblock_t, mop_t, optblock_t, minsn_visitor_t, mbl_array_t,mop_n
 
 import ida_lines
 import re
+from typing import List, Tuple
+FLATTENING_JUMP_OPCODES = [hr.m_jnz, hr.m_jz, hr.m_jae, hr.m_jb, hr.m_ja, hr.m_jbe,hr.m_jg, hr.m_jge, hr.m_jl, hr.m_jle]
+
+def extract_num_mop(ins: hr.minsn_t) -> Tuple[mop_t, mop_t]:
+    num_mop = None
+    other_mop = None
+
+    if ins.l.t == mop_n:
+        num_mop = ins.l
+        other_mop = ins.r
+    if ins.r.t == mop_n:
+        num_mop = ins.r
+        other_mop = ins.l
+    return [num_mop, other_mop]
+
+def get_comparison_info(blk: hr.mblock_t) -> Tuple[hr.mop_t, mop_t]:
+    # We check if blk is a good candidate for dispatcher entry block: blk.tail must be a conditional branch
+    if (blk.tail is None) or (blk.tail.opcode not in FLATTENING_JUMP_OPCODES):
+        return None, None
+    # One operand must be numerical
+    num_mop, mop_compared = extract_num_mop(blk.tail)
+    if num_mop is None or mop_compared is None:
+        return None, None
+    return num_mop, mop_compared
 
 
-def dominanceFlow(dispatch_block):
+
+def dominanceFlow(mba,dispatch_block):
+    from d810.optimizers.flow.flattening.generic import GenericDispatcherBlockInfo
+    from d810.tracker import MopHistory, MopTracker
+    from d810.optimizers.flow.flattening.utils import NotResolvableFatherException, get_all_possibles_values
     # import pydevd_pycharm
     # pydevd_pycharm.settrace('localhost', port=31235, stdoutToServer=True, stderrToServer=True)
 
@@ -27,9 +56,31 @@ def dominanceFlow(dispatch_block):
         path.pop()
         visited.remove(current_node.serial)
     paths = []
+
     dfs(dispatch_block,dispatch_block,[],paths,set())
+    entry_block = GenericDispatcherBlockInfo(dispatch_block)
+    entry_block.parse()
+    num_mop, mop_compared = get_comparison_info(entry_block.blk)
+    # father_tracker.reset()
+
+    for dispatcher_father_serial in dispatch_block.predset:
+        father_tracker = MopTracker(entry_block.use_before_def_list, max_nb_block=100, max_path=100)
+        father_tracker.reset()
+        print("----current father: {0} ----------".format(dispatcher_father_serial))
+        dispatcher_father_block = mba.get_mblock(dispatcher_father_serial)
+        father_histories = father_tracker.search_backward(dispatcher_father_block, None)
+        father_histories_cst = get_all_possibles_values(father_histories, entry_block.use_before_def_list,verbose=False)
+        Const_Hex_str=""
+        for list1 in father_histories_cst:
+            for print_const in list1:
+                Const_Hex_str =  Const_Hex_str+hex(print_const)+":"
+        print(Const_Hex_str)
+
     for path in paths:
         print("path:",path)
+
+
+
 
 
 
@@ -136,7 +187,7 @@ class dominance_graphviewer_t(microcode_graphviewer_t):
                 self.Refresh()
                 self.Select(self.select_node)
         elif cmd_id == self.show_dom_log_id:
-            dominanceFlow(self.select_block)
+            dominanceFlow(self._mba,self.select_block)
         elif cmd_id == self.save_graphviz_id:
             file_path = kw.ask_file(True, "*.graphviz", "Please select a file")
             if file_path:
