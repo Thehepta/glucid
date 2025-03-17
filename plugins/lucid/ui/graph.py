@@ -230,7 +230,7 @@ class dominance_graphviewer_t(microcode_graphviewer_t):
         elif cmd_id == self.show_dom_log_id:
             dominanceFlow(self._mba,self.select_block)
         elif cmd_id == self.save_graphviz_id:
-            file_path = kw.ask_file(True, "*.graphviz", "Please select a file")
+            file_path = kw.ask_file(True, "*.dot", "Please select a file")
             if file_path:
                 kw.msg("Selected file: {}\n".format(file_path))
                 graphviz(self._mba,file_path)
