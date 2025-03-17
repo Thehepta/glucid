@@ -1,12 +1,52 @@
 import ida_graph
 import ida_hexrays as hr
 import ida_kernwin as kw
+from graphviz import Digraph
 from ida_hexrays import mblock_t, mop_t, optblock_t, minsn_visitor_t, mbl_array_t,mop_n
 
 import ida_lines
 import re
 from typing import List, Tuple
 FLATTENING_JUMP_OPCODES = [hr.m_jnz, hr.m_jz, hr.m_jae, hr.m_jb, hr.m_ja, hr.m_jbe,hr.m_jg, hr.m_jge, hr.m_jl, hr.m_jle]
+
+
+def graphviz(mba,output_path):
+    dot = Digraph()
+    dot.attr(splines='ortho')
+    for blk_idx in range(mba.qty):
+        blk = mba.get_mblock(blk_idx)
+        if blk.head == None:
+            continue
+        lines = []
+
+        lines.append("{0}:{1}".format(blk_idx, hex(blk.head.ea)))
+        insn = blk.head
+        while insn:
+            lines.append(insn.dstr())
+            if insn == blk.tail:
+                break
+            insn = insn.next
+        label = "\n".join(lines)
+        dot.node(str(blk_idx), label=label, shape="rect", style="filled", fillcolor="lightblue")
+
+    for blk_idx in range(mba.qty):
+        blk = mba.get_mblock(blk_idx)
+        succset = [x for x in blk.succset]
+        for succ in succset:
+            blk_succ = mba.get_mblock(succ)
+            if blk_succ.head is None:
+                continue
+            if blk.head is None:
+                continue
+            dot.edge(str(blk_idx), str(succ))
+
+    # dot.render("/home/chic/graph_with_contentgraph_with_content", format="png")
+    with open(output_path, "w") as f:
+        f.write(dot.source)
+    # dot.render("/home/chic/graph_with_content", format="png")
+    print("dot已保存到 :",output_path)
+
+
 
 def extract_num_mop(ins: hr.minsn_t) -> Tuple[mop_t, mop_t]:
     num_mop = None
@@ -193,7 +233,7 @@ class dominance_graphviewer_t(microcode_graphviewer_t):
             file_path = kw.ask_file(True, "*.graphviz", "Please select a file")
             if file_path:
                 kw.msg("Selected file: {}\n".format(file_path))
-                # graphviz(self._mba,file_path)
+                graphviz(self._mba,file_path)
             else:
                 kw.msg("No file selected\n")
             print("save_graphviz_id")
