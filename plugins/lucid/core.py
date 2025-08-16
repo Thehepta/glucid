@@ -122,7 +122,12 @@ class LucidCore(object):
     # Action Registration
     #--------------------------------------------------------------------------
 
+    def interactive_view_refresh(self, ctx=None):
+        import ida_hexrays
+        ida_hexrays.clear_cached_cfuncs()
+
     ACTION_VIEW_MICROCODE  = "lucid:view_microcode"
+    ACTION_REFRESH_MICROCODE  = "lucid:refresh_microcode"
 
     def _init_action_view_microcode(self):
         """
@@ -139,14 +144,26 @@ class LucidCore(object):
             -1                                             # Optional: the action icon
         )
 
+        # describe the action
+        action_desc2 = ida_kernwin.action_desc_t(
+            self.ACTION_REFRESH_MICROCODE,                    # The action name
+            "Microcode refresh",                              # The action text
+            IDACtxEntry(self.interactive_view_refresh),  # The action handler
+            "",                                # Optional: action shortcut
+            "Microcode  refresh",           # Optional: tooltip
+            -1                                             # Optional: the action icon
+        )
+
         # register the action with IDA
         assert ida_kernwin.register_action(action_desc), "Action registration failed"
+        assert ida_kernwin.register_action(action_desc2), "Action registration failed"
 
     def _del_action_view_microcode(self):
         """
         Delete the 'View microcode' action from IDA.
         """
         ida_kernwin.unregister_action(self.ACTION_VIEW_MICROCODE)
+        ida_kernwin.unregister_action(self.ACTION_REFRESH_MICROCODE)
 
     #--------------------------------------------------------------------------
     # Hex-Rays Hooking
@@ -187,7 +204,14 @@ class LucidCore(object):
             None,
             ida_kernwin.SETMENU_APP
         )
-    
+
+        ida_kernwin.attach_action_to_popup(
+            widget,
+            popup,
+            self.ACTION_REFRESH_MICROCODE,
+            None,
+            ida_kernwin.SETMENU_APP
+        )
     #--------------------------------------------------------------------------
     # Plugin Testing
     #--------------------------------------------------------------------------
