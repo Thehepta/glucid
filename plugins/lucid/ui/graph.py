@@ -1,7 +1,6 @@
 import ida_graph
 import ida_hexrays as hr
 import ida_kernwin as kw
-from graphviz import Digraph
 from ida_hexrays import mblock_t, mop_t, optblock_t, minsn_visitor_t, mbl_array_t,mop_n
 
 import ida_lines
@@ -11,6 +10,7 @@ FLATTENING_JUMP_OPCODES = [hr.m_jnz, hr.m_jz, hr.m_jae, hr.m_jb, hr.m_ja, hr.m_j
 
 
 def graphviz(mba,output_path):
+    from graphviz import Digraph
     dot = Digraph()
     dot.attr(splines='ortho')
     for blk_idx in range(mba.qty):
