@@ -240,6 +240,7 @@ class dominance_graphviewer_t(microcode_graphviewer_t):
 
     def OnClick(self, node_id):
         self.select_node = node_id
+        return True
 
     def compute_dominates(self):
         nodes = set(list(range(self._mba.qty)))
